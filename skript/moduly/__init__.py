@@ -1,0 +1,2 @@
+"""Moduly lokální znalostní databáze."""
+

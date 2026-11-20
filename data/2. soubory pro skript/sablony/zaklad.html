@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="cs" data-db-id="{{DB_ID}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{TITLE}} – {{DB_NAME}}</title>
+  <link rel="stylesheet" href="{{ROOT}}css/style.css">
+  <script defer src="{{ROOT}}js/app.js"></script>
+  {{EXTRA_HEAD}}
+</head>
+<body id="app-zacatek">
+  <a class="preskocit" href="#hlavni-obsah">Přeskočit na hlavní obsah</a>
+  <a class="preskocit" href="#bocni-navigace">Přeskočit na navigaci</a>
+  <header class="hlavicka">
+    <a class="nazev-databaze" href="{{ROOT}}index.html">{{DB_NAME}}</a>
+    <form class="hledani" action="{{ROOT}}search.html" method="get" role="search">
+      <label for="globalni-dotaz">Hledat v databázi</label>
+      <div><input id="globalni-dotaz" name="q" type="search" value="{{SEARCH_QUERY}}"><button type="submit">Hledat</button></div>
+    </form>
+    <div class="motiv"><label for="volba-motivu">Motiv</label>
+      <select id="volba-motivu"><option value="auto">Automatický</option><option value="light">Světlý</option><option value="dark">Tmavý</option></select>
+    </div>
+  </header>
+  <div id="globalni-stav" class="oznameni" role="status" aria-live="polite" hidden></div>
+  <div class="rozlozeni">
+    <main id="hlavni-obsah" tabindex="-1">
+      {{BREADCRUMBS}}
+      {{CONTENT}}
+      {{TOP_BUTTON}}
+    </main>
+    <aside id="bocni-navigace" aria-label="Postranní navigace">
+      {{SIDEBAR}}
+      <div class="preference-akce">
+        <button type="button" id="export-preferenci">Exportovat data z IndexedDB</button>
+        <button type="button" id="import-preferenci">Nahrát data do IndexedDB</button>
+        <input type="file" id="soubor-preferenci" accept="application/json,.json" hidden>
+      </div>
+    </aside>
+  </div>
+  <dialog id="lightbox" aria-labelledby="lightbox-popis">
+    <div class="dialog-obsah">
+      <p id="lightbox-poradi" aria-live="polite"></p>
+      <div id="lightbox-obrazek-obal" class="lightbox-obrazek-obal"><img id="lightbox-obrazek" alt=""></div>
+      <p id="lightbox-popis"></p>
+      <div class="dialog-ovladani">
+        <button type="button" id="lightbox-predchozi">Předchozí</button>
+        <button type="button" id="lightbox-dalsi">Další</button>
+        <button type="button" id="lightbox-priblizit">Přiblížit</button>
+        <button type="button" id="lightbox-oddalit">Oddálit</button>
+        <button type="button" id="lightbox-obnovit">Obnovit velikost</button>
+        <button type="button" id="lightbox-zavrit">Zavřít</button>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>
