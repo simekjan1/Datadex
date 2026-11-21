@@ -57,6 +57,14 @@ JSON se zapisuje přes dočasný soubor ve stejné složce a atomické nahrazen�
 - Povolené veřejné typy příloh zahrnují běžné dokumenty, kancelářské soubory, archivy, obrázky, zvuk a video. Aktivní typy jako HTML, JavaScript, SVG, spustitelné a skriptové soubory se z bezpečnostních důvodů nepublikují.
 - Zdrojové soubory se při převodu nepřejmenovávají, nepřesouvají ani obsahově neupravují.
 
+### Lokální HTML aplikace v panelu projektů
+
+Výjimkou z obecného zákazu aktivních příloh je sedm výslovně schválených HTML aplikací uvedených v `projekty.json`: Adresář, Palpatius, Knihovna, Phasmarium, TextBox, masazesimek.cz a vidimtojinak. Při inkrementálním i úplném převodu se jejich bezpečné statické soubory kopírují do stejné relativní cesty pod `web/`, takže fungují místní HTML stránky, CSS, JavaScript, obrázky, ikony, fonty a bezpečné datové JSON/CSV soubory. Zdrojové projekty se nemění.
+
+Publikátor nepřenáší vývojové poznámky, uživatelské složky, `popisky.json`, soukromé konfigurace, databáze, klíče, archivy, Markdown/TXT dokumentaci ani `.bat`, `.cmd`, `.exe`, `.py` a jiné programové soubory. Jiné HTML projekty se automaticky nezveřejní. Po změně souborů schválené aplikace stačí spustit „Převést pouze změněné dokumenty“; úplná regenerace není nutná.
+
+Lokální server nespouští backend a odmítá HTTP POST. Část webu, která závisí na Netlify formuláři, vzdáleném CDN, analytice, komentářové službě nebo jiném internetu, proto nemusí lokálně fungovat; vlastní místní stránky a soubory zůstávají dostupné. Databáze kvůli tomu žádnou vzdálenou službu sama nekontaktuje a vzdálené skripty jsou její bezpečnostní politikou blokované.
+
 Převodník ze standardní knihovny podporuje ATX nadpisy H1–H6, odstavce, bezpečné odkazy a obrázky, tučné a kurzívní písmo, inline i oplocené bloky kódu, jednoduché číslované a nečíslované seznamy, citace a běžné pipe tabulky. Surové HTML se úmyslně escapuje. V první verzi nejsou plně podporovány vnořené seznamy, referenční odkazy, poznámky pod čarou, rozšíření jednotlivých Markdown implementací ani složité tabulky s escapovanými svislítky.
 
 Interní relativní odkazy se otevírají ve stejné kartě. HTTP, HTTPS a e-mailové odkazy se otevírají v nové kartě s přístupným upozorněním. Nebezpečné protokoly a cesty opouštějící povolený kořen jsou odmítnuty.

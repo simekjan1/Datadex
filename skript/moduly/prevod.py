@@ -11,11 +11,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from .cesty import DOCASNE, KOREN, SABLONY, STAV, SYSTEM_DATA, WEB, atomicky_kopiruj, atomicky_zapis, atomicky_zapis_json_pole, hash_souboru, je_uvnitr, nacti_json, priprav_adresare, zapis_json, zapis_log
+from .cesty import DOCASNE, KOREN, SABLONY, STAV, SYSTEM_DATA, WEB, ZDROJE, atomicky_kopiruj, atomicky_zapis, atomicky_zapis_json_pole, hash_souboru, je_uvnitr, nacti_json, priprav_adresare, zapis_json, zapis_log
 from .galerie import SkupinaGalerie, aktualizuj_popisky, je_podporovany_obrazek, kopiruj_prilohu, priprav_galerie
 from .konfigurace import inicializuj, nacti_galerie, nacti_nastaveni, nacti_projekty, nacti_weby
 from .markdown_bezpecny import MAX_TEXT_CHARS, Nadpis, VysledekMarkdown, preved_markdown, preved_txt
 from .model import BEZPECNE_SOUBORY, Dokument, OBRAZKY, SamostatnySoubor, Sken, lidsky_nazev, razeni, skenuj, stabilni_id
+from .projekty_html import vyber_projektove_soubory
 
 
 @dataclass
@@ -36,13 +37,14 @@ def _esc(text: object) -> str:
 def _nacti_manifest() -> dict:
     cesta = STAV / "manifest.json"
     if not cesta.exists():
-        return {"verze": 2, "documents": {}, "failedDocuments": {}, "standalone": {}, "files": {}, "outputs": [], "trusted": False}
+        return {"verze": 2, "documents": {}, "failedDocuments": {}, "standalone": {}, "htmlProjects": {}, "files": {}, "outputs": [], "trusted": False}
     try:
         data = nacti_json(cesta, dict)
         if data.get("verze") != 2:
             raise ValueError("Nepodporovaná verze manifestu.")
         data.setdefault("failedDocuments", {})
-        for klic in ("documents", "failedDocuments", "standalone", "files"):
+        data.setdefault("htmlProjects", {})
+        for klic in ("documents", "failedDocuments", "standalone", "htmlProjects", "files"):
             if not isinstance(data.get(klic), dict):
                 raise ValueError(f"Manifest neobsahuje platnou sekci {klic}.")
         if not isinstance(data.get("outputs"), list) or not all(isinstance(x, str) for x in data["outputs"]):
@@ -50,7 +52,7 @@ def _nacti_manifest() -> dict:
         data["trusted"] = True
         return data
     except (ValueError, OSError):
-        return {"verze": 2, "documents": {}, "failedDocuments": {}, "standalone": {}, "files": {}, "outputs": [], "trusted": False}
+        return {"verze": 2, "documents": {}, "failedDocuments": {}, "standalone": {}, "htmlProjects": {}, "files": {}, "outputs": [], "trusted": False}
 
 
 def _klic_souboru(cesta: Path) -> str:
@@ -435,6 +437,36 @@ def generuj(*, uplne: bool = False, vypis=print) -> Souhrn:
         rel=Path("css/style.css") if name=="style.css" else Path("js")/name
         if sablony_zmeneny or not (WEB/rel).is_file(): atomicky_kopiruj(SABLONY/name,WEB/rel,cilovy_koren=WEB)
 
+    # Výslovně schválené statické HTML projekty se publikují odděleně od běžných příloh.
+    # Tím zůstávají zachované jejich relativní cesty, aniž by se zveřejnil celý vývojový adresář.
+    vyber_projektu=vyber_projektove_soubory(projekty,souhrn.varovani)
+    stare_html_projekty=old.get("htmlProjects",{}) if old.get("trusted") else {}
+    nove_html_projekty={}
+    if vyber_projektu.soubory:
+        vypis(f"Publikuji lokální HTML projekty: {len(vyber_projektu.soubory)} bezpečných statických souborů.")
+    for projektovy_soubor in vyber_projektu.soubory:
+        klic=projektovy_soubor.verejna_rel.as_posix(); predchozi=stare_html_projekty.get(klic,{})
+        cil=WEB/projektovy_soubor.verejna_rel
+        try:
+            otisk=_otisk_souboru(projektovy_soubor.zdroj,stare_soubory,nove_soubory,vynutit=uplne or not old.get("trusted"))
+            zdroj_rel=projektovy_soubor.zdroj.relative_to(ZDROJE).as_posix()
+            if not uplne and old.get("trusted") and predchozi.get("sha256")==otisk["sha256"] and predchozi.get("source")==zdroj_rel and cil.is_file() and not cil.is_symlink():
+                zaznam=predchozi
+            else:
+                atomicky_kopiruj(projektovy_soubor.zdroj,cil,zdrojovy_koren=ZDROJE,cilovy_koren=WEB)
+                zaznam={"sha256":otisk["sha256"],"output":klic,"source":zdroj_rel,"project":projektovy_soubor.vstup_url}
+            nove_html_projekty[klic]=zaznam;outputs.add(klic)
+        except (OSError,ValueError,MemoryError) as e:
+            souhrn.varovani.append(f"Soubor HTML projektu nelze publikovat {klic}: {type(e).__name__}: {e}")
+            if isinstance(predchozi,dict) and predchozi.get("output")==klic and cil.is_file() and not cil.is_symlink():
+                nove_html_projekty[klic]=predchozi;outputs.add(klic)
+            if isinstance(e,MemoryError):gc.collect()
+    if not vyber_projektu.uplny:
+        for klic,predchozi in stare_html_projekty.items():
+            cil=WEB/klic
+            if klic not in nove_html_projekty and isinstance(predchozi,dict) and predchozi.get("output")==klic and je_uvnitr(cil,WEB) and cil.is_file() and not cil.is_symlink():
+                nove_html_projekty[klic]=predchozi;outputs.add(klic)
+
     newdocs={}; failed_docs={}; newstandalone={}; index_cesty=[]; index_zmenen=sablony_zmeneny or not old.get("trusted")
     mapa={d.zdroj.resolve(strict=False):d for d in sken.dokumenty}; total=max(1,len(doc_stavy))
     for num,stav in enumerate(doc_stavy,1):
@@ -533,7 +565,7 @@ def generuj(*, uplne: bool = False, vypis=print) -> Souhrn:
     if index_zmenen or not all((WEB/p).is_file() for p in search_outputs):
         vypis("Sestavuji dělený fulltextový index..."); _vytvor_index(index_cesty,projekty,weby,outputs)
     else: outputs.update(search_outputs)
-    manifest={"verze":2,"sharedHash":shared_effective,"sidebarHash":sidebar_hash,"pageHash":page_hash,"documents":newdocs,"failedDocuments":failed_docs,"standalone":newstandalone,"files":nove_soubory,"outputs":sorted(outputs)}
+    manifest={"verze":2,"sharedHash":shared_effective,"sidebarHash":sidebar_hash,"pageHash":page_hash,"documents":newdocs,"failedDocuments":failed_docs,"standalone":newstandalone,"htmlProjects":nove_html_projekty,"files":nove_soubory,"outputs":sorted(outputs)}
     zapis_json(STAV/"manifest.json",manifest,zaloha=False)
     if sken.uplny:
         for rel in set(old.get("outputs",[]))-outputs:

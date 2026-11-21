@@ -9,6 +9,7 @@ import webbrowser
 from pathlib import Path
 
 from .cesty import WEB, je_uvnitr
+from .projekty_html import je_projektova_cesta
 
 
 class VerejnyHandler(http.server.SimpleHTTPRequestHandler):
@@ -47,7 +48,14 @@ class VerejnyHandler(http.server.SimpleHTTPRequestHandler):
         self._ceska_chyba(405, "Nahrávání na server není povoleno.")
 
     def end_headers(self):
-        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+        if je_projektova_cesta(self.path):
+            csp = ("default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; "
+                   "font-src 'self' data:; script-src 'self' 'unsafe-inline'; "
+                   "style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self' blob:; "
+                   "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+        else:
+            csp = "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        self.send_header("Content-Security-Policy", csp)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
